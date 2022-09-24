@@ -1,1 +1,5 @@
+.vscode/
 locker
+unlocker
+rsa_secret_key.pem
+rsa_public_key.pem
