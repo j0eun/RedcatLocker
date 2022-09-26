@@ -5,55 +5,31 @@ FILE* logger = 0;
 int main(int argc, char** argv, char** envp)
 {
     logger = stdout;
+    int key_size = 0;
+    char mode[MAX_MODE_LENGTH] = {0, };
+    char target[MAX_TARGET_LENGTH] = {0, };
 
-    int opt = 0;
-    int opt_idx = 0;
-    char serial[16] = {0, };
-    char target[256] = {0, };
-    struct option options[] = {
-        {"quiet", no_argument, 0, 0},
-        {"serial", required_argument, 0, 0},
-        {"target", required_argument, 0, 0},
-        {0, 0, 0, 0},
-    };
-    while ((opt = getopt_long(argc, argv, "q:s:t:", options, &opt_idx)) != -1)
+    if (!parse_options(&key_size, mode, target, argc, argv))
     {
-        switch (opt_idx)
-        {
-            if (opt != 0) break;
-            case 1:
-                memcpy(serial, optarg, 16);
-                break;
-            case 2:
-                memcpy(target, optarg, 256);
-                break;
-        }
-        switch (opt)
-        {
-            case 'q':
-                logger = fopen("/dev/0", "w");
-                break;
-            case 's':
-                fprintf(logger, "serial: %s\n", serial);
-                break;
-            case 't':
-                fprintf(logger, "target: %s\n", target);
-                break;
-            default:
-                print_usage();
-                return 1;
-        }
+        print_usage();
+        return EXIT_FAILURE;
     }
-    if (is_valid_serial(serial) == 0)
+    fprintf(logger, "[+] bits: %d\n", key_size);
+    fprintf(logger, "[+] mode: %s\n", mode);
+    fprintf(logger, "[+] target: %s\n", target);
+
+    if (is_already_running())
     {
-        fprintf(logger, "please input a valid serial code\n");
-        return 1;
+        fprintf(logger, "[-] the another process is already running!\n");
+        return EXIT_FAILURE;
     }
+
+    sem_unlink(SEM_NAME);
     if (logger->_fileno != stdout->_fileno)
     {
         fclose(logger);
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void print_usage()
@@ -63,13 +39,65 @@ void print_usage()
         "    ./locker [options] \n" \
         "\n" \
         "Options: \n" \
-        "    -q, --quiet        blahblah \n" \
-        "    -s, --serial       blahblah \n" \
-        "    -t, --target       blahblah \n";
-    fprintf(stdout, "%s\n", man);
+        "    -b, --bits         required, number of bits for AES encryption key (128, 192, 256)\n" \
+        "    -m, --mode         required, AES cipher block mode to use (aes-ecb, aes-cbc)\n" \
+        "    -t, --target       required, target root directory path to encrypt (length is must be 256 under)\n" \
+        "    -q, --quiet        optional, disable to logging \n";
+    fprintf(stderr, "%s\n", man);
 }
 
-int is_valid_serial(char* serial)
+int parse_options(int* key_size, char* mode, char* target, int argc, char** argv)
 {
+    int opt = 0;
+    int opt_idx = 0;
+    struct option options[] = {
+        {"quiet", no_argument, 0, 'q'},
+        {"bits", required_argument, 0, 'b'},
+        {"mode", required_argument, 0, 'm'},
+        {"target", required_argument, 0, 't'},
+        {0, 0, 0, 0},
+    };
+    while ((opt = getopt_long(argc, argv, "b:m:t:q", options, &opt_idx)) != -1)
+    {
+        switch (opt)
+        {
+        case 0:
+            switch (opt_idx)
+            {
+            case 1:
+                *key_size = atoi(optarg);
+                break;
+            case 2:
+                memcpy(mode, optarg, MAX_MODE_LENGTH-1);
+                break;
+            case 3:
+                memcpy(target, optarg, MAX_TARGET_LENGTH-1);
+                break;
+            }
+        case 'q':
+            logger = fopen("/dev/null", "w");
+            break;
+        case 'b':
+            *key_size = atoi(optarg);
+            break;
+        case 'm':
+            memcpy(mode, optarg, MAX_MODE_LENGTH-1);
+            break;
+        case 't':
+            memcpy(target, optarg, MAX_TARGET_LENGTH-1);
+            break;
+        default:
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int is_already_running()
+{
+    if (sem_open(SEM_NAME, O_CREAT|O_EXCL, 0666, 1) == SEM_FAILED)
+    {
+        return errno == EEXIST;
+    }
     return 0;
 }

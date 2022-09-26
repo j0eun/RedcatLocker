@@ -1,5 +1,11 @@
+# related to launch and debugging
 .vscode/
+.gdb_history
+
+# compiled binaries
 locker
 unlocker
+
+# attacker's RSA-4096 key pair
 rsa_secret_key.pem
 rsa_public_key.pem
