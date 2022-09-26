@@ -1,10 +1,12 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
+#include <dirent.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <semaphore.h>
@@ -17,7 +19,6 @@
 #define MAX_MODE_LENGTH 8
 #define MAX_TARGET_LENGTH 256
 
-#define SEM_NAME "locker.lock"
 #define ATK_RSA_PUBLIC_KEY "-----BEGIN PUBLIC KEY-----\n" \
     "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAySDRKBBg/2npTTbPhoz1\n" \
     "nd0Wht8iNs5f/fP0xSBu85PhLuYHsAQ0H2yNB5kVaKBgnXSEiix+tto59v73LF7S\n" \
@@ -34,5 +35,5 @@
     "-----END PUBLIC KEY-----" \
 
 void print_usage();
-int is_already_running();
-int parse_options(int* key_size, char* method, char* target, int argc, char** argv);
+int is_valid_options(int* key_size, char* mode, char* target);
+int parse_options(int* key_size, char* mode, char* target, int argc, char** argv);

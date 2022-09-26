@@ -18,13 +18,12 @@ int main(int argc, char** argv, char** envp)
     fprintf(logger, "[+] mode: %s\n", mode);
     fprintf(logger, "[+] target: %s\n", target);
 
-    if (is_already_running())
+    if (!is_valid_options(&key_size, mode, target))
     {
-        fprintf(logger, "[-] the another process is already running!\n");
+        fprintf(logger, "[-] some option has invalid value!\n");
         return EXIT_FAILURE;
     }
 
-    sem_unlink(SEM_NAME);
     if (logger->_fileno != stdout->_fileno)
     {
         fclose(logger);
@@ -93,11 +92,32 @@ int parse_options(int* key_size, char* mode, char* target, int argc, char** argv
     return 1;
 }
 
-int is_already_running()
+int is_valid_options(int* key_size, char* mode, char* target)
 {
-    if (sem_open(SEM_NAME, O_CREAT|O_EXCL, 0666, 1) == SEM_FAILED)
+    switch (*key_size)
     {
-        return errno == EEXIST;
+    case 128:
+    case 192:
+    case 256:
+        break;
+    default:
+        return 0;
     }
-    return 0;
+    for (int i = 0; i < MAX_MODE_LENGTH; i++)
+    {
+        mode[i] = tolower(mode[i]);
+    }
+    if (strncmp(mode, "aes-ecb", 7) && strncmp(mode, "aes-cbc", 7))
+    {
+        return 0;
+    }
+    DIR* dir = opendir(target);
+    if (dir) {
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        return 0; // Directory does not exist.
+    } else {
+        return 0; // opendir() failed for some other reason.
+    }
+    return 1;
 }
