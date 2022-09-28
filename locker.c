@@ -7,7 +7,7 @@ int main(int argc, char** argv, char** envp)
     logger = stdout;
     int key_size = 0;
     char mode[MAX_MODE_LENGTH] = {0, };
-    char target[MAX_TARGET_LENGTH] = {0, };
+    char target[MAX_PATH_LENGTH] = {0, };
 
     if (!parse_options(&key_size, mode, target, argc, argv))
     {
@@ -23,7 +23,19 @@ int main(int argc, char** argv, char** envp)
         fprintf(logger, "[-] some option has invalid value!\n");
         return EXIT_FAILURE;
     }
-
+    cvector_vector_type(char*) paths = 0;
+    walkdir(&paths, target);
+    for (int i = 0; i < cvector_size(paths); i++)
+    {
+        fprintf(logger, "path[%d]: %s\n", i, paths[i]);
+    }
+    
+    for (int i = 0; i < cvector_size(paths); i++)
+    {
+        memset(paths[i], 0, MAX_PATH_LENGTH);
+        free(paths[i]);
+    }
+    cvector_free(paths);
     if (logger->_fileno != stdout->_fileno)
     {
         fclose(logger);
@@ -70,7 +82,7 @@ int parse_options(int* key_size, char* mode, char* target, int argc, char** argv
                 memcpy(mode, optarg, MAX_MODE_LENGTH-1);
                 break;
             case 3:
-                memcpy(target, optarg, MAX_TARGET_LENGTH-1);
+                memcpy(target, optarg, MAX_PATH_LENGTH-1);
                 break;
             }
         case 'q':
@@ -83,7 +95,7 @@ int parse_options(int* key_size, char* mode, char* target, int argc, char** argv
             memcpy(mode, optarg, MAX_MODE_LENGTH-1);
             break;
         case 't':
-            memcpy(target, optarg, MAX_TARGET_LENGTH-1);
+            memcpy(target, optarg, MAX_PATH_LENGTH-1);
             break;
         default:
             return 0;
@@ -94,6 +106,8 @@ int parse_options(int* key_size, char* mode, char* target, int argc, char** argv
 
 int is_valid_options(int* key_size, char* mode, char* target)
 {
+    DIR* dir = 0;
+
     switch (*key_size)
     {
     case 128:
@@ -111,7 +125,7 @@ int is_valid_options(int* key_size, char* mode, char* target)
     {
         return 0;
     }
-    DIR* dir = opendir(target);
+    dir = opendir(target);
     if (dir) {
         closedir(dir);
     } else if (ENOENT == errno) {
@@ -120,4 +134,34 @@ int is_valid_options(int* key_size, char* mode, char* target)
         return 0; // opendir() failed for some other reason.
     }
     return 1;
+}
+
+void walkdir(cvector_vector_type(char*)* paths, char* parent_dir)
+{
+    struct dirent* ent;
+    struct stat ent_info;
+    DIR* dir = opendir(parent_dir);
+    char* path = (char*)malloc(MAX_PATH_LENGTH-1);
+    while (dir != 0)
+    {
+        ent = readdir(dir);
+        if (ent == 0) 
+            break;
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) 
+            continue;
+        memset((char*)path, 0, MAX_PATH_LENGTH-1);
+        sprintf(path, "%s/%s", parent_dir, ent->d_name);
+        if (stat(path, &ent_info) == -1) 
+        {
+            continue;
+        }
+        if (S_ISDIR(ent_info.st_mode))
+        {
+            walkdir(paths, path);
+        }
+        else if (S_ISREG(ent_info.st_mode))
+        {
+            cvector_push_back(*paths, path);
+        }
+    }
 }

