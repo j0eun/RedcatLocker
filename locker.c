@@ -29,7 +29,7 @@ int main(int argc, char** argv, char** envp)
     {
         fprintf(logger, "path[%d]: %s\n", i, paths[i]);
     }
-    
+
     for (int i = 0; i < cvector_size(paths); i++)
     {
         memset(paths[i], 0, MAX_PATH_LENGTH);
@@ -138,10 +138,10 @@ int is_valid_options(int* key_size, char* mode, char* target)
 
 void walkdir(cvector_vector_type(char*)* paths, char* parent_dir)
 {
+    char* path = 0;
     struct dirent* ent;
     struct stat ent_info;
     DIR* dir = opendir(parent_dir);
-    char* path = (char*)malloc(MAX_PATH_LENGTH-1);
     while (dir != 0)
     {
         ent = readdir(dir);
@@ -149,8 +149,8 @@ void walkdir(cvector_vector_type(char*)* paths, char* parent_dir)
             break;
         if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) 
             continue;
-        memset((char*)path, 0, MAX_PATH_LENGTH-1);
-        sprintf(path, "%s/%s", parent_dir, ent->d_name);
+        path = (char*)calloc(1, MAX_PATH_LENGTH);
+        snprintf(path, MAX_PATH_LENGTH-1, "%s/%s", parent_dir, ent->d_name);
         if (stat(path, &ent_info) == -1) 
         {
             continue;
@@ -158,10 +158,13 @@ void walkdir(cvector_vector_type(char*)* paths, char* parent_dir)
         if (S_ISDIR(ent_info.st_mode))
         {
             walkdir(paths, path);
+            memset(path, 0, MAX_PATH_LENGTH);
+            free(path);
         }
         else if (S_ISREG(ent_info.st_mode))
         {
             cvector_push_back(*paths, path);
         }
     }
+    closedir(dir);
 }
