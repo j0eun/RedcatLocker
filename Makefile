@@ -1,9 +1,12 @@
 CC = clang
-TARGET = locker
+ENCRYPTOR = locker
+DECRYPTOR = unlocker
 LDFLAGS = -lcrypto -lssl
 
 all:
-	@$(CC) -o $(TARGET) locker.c $(LDFLAGS)
+	@$(CC) -o $(ENCRYPTOR) locker.c $(LDFLAGS)
+	@$(CC) -o $(DECRYPTOR) unlocker.c $(LDFLAGS)
 
 clean:
-	@rm $(TARGET)
+	@rm $(ENCRYPTOR)
+	@rm $(DECRYPTOR)
